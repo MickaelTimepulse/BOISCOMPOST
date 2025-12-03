@@ -74,7 +74,11 @@ export function LoginForm() {
         <div className="bg-white rounded-2xl shadow-xl p-8">
           <div className="flex flex-col items-center mb-8">
             <div className="text-center">
-              <h1 className="text-4xl font-bold text-green-700 mb-2">BOISCOMPOST</h1>
+              <img
+                src="/boiscompost_origine copy copy copy.jpg"
+                alt="BOISCOMPOST"
+                className="h-16 mx-auto mb-4"
+              />
               <p className="text-gray-600">Gestion des collectes</p>
             </div>
           </div>
