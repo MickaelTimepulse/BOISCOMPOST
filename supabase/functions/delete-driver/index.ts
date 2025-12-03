@@ -106,21 +106,6 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const { error: deleteProfileError } = await supabase
-      .from('profiles')
-      .delete()
-      .eq('id', driver_id);
-
-    if (deleteProfileError) {
-      return new Response(
-        JSON.stringify({ error: deleteProfileError.message }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
-
     const { error: deleteAuthError } = await supabase.auth.admin.deleteUser(driver_id);
 
     if (deleteAuthError) {
