@@ -50,12 +50,31 @@ export function DriversManager() {
     setPasswordLoading(true);
 
     try {
-      const { error } = await supabase.auth.admin.updateUserById(
-        selectedDriver!.id,
-        { password: newPassword }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Session expirée. Veuillez vous reconnecter.');
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-driver-password`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            driver_id: selectedDriver!.id,
+            password: newPassword,
+          }),
+        }
       );
 
-      if (error) throw error;
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Erreur lors du changement de mot de passe');
+      }
 
       setPasswordSuccess('Mot de passe modifié avec succès');
       setTimeout(() => {
