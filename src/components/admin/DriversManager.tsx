@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, startTransition } from 'react';
 import { supabase, Profile } from '../../lib/supabase';
 import { Plus, Search, Edit2, Loader2, Mail, Phone, Lock, Trash2 } from 'lucide-react';
 import { DriverForm } from './DriverForm';
@@ -85,37 +85,52 @@ export function DriversManager() {
 
   const handleDeleteDriver = async (driver: Profile) => {
     try {
-      const { data: missions, error: checkError } = await supabase
-        .from('missions')
-        .select('id')
-        .eq('driver_id', driver.id)
-        .limit(1);
-
-      if (checkError) throw checkError;
-
-      if (missions && missions.length > 0) {
-        alert(`Impossible de supprimer ${driver.full_name}. Ce chauffeur a des missions associées. Vous pouvez le désactiver à la place.`);
-        return;
-      }
-
       if (!confirm(`Êtes-vous sûr de vouloir supprimer définitivement le chauffeur ${driver.full_name} ?`)) {
         return;
       }
 
-      const { error: deleteAuthError } = await supabase.auth.admin.deleteUser(driver.id);
+      const driverId = driver.id;
+      setDrivers(prev => prev.filter(d => d.id !== driverId));
 
-      if (deleteAuthError) throw deleteAuthError;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        alert('Session expirée. Veuillez vous reconnecter.');
+        startTransition(() => {
+          loadDrivers();
+        });
+        return;
+      }
 
-      const { error: deleteProfileError } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', driver.id);
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-driver`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ driver_id: driverId }),
+        }
+      );
 
-      if (deleteProfileError) throw deleteProfileError;
+      const result = await response.json();
 
-      loadDrivers();
+      if (!response.ok) {
+        if (result.error === 'Cannot delete driver with associated missions') {
+          alert(`Impossible de supprimer ${driver.full_name}. Ce chauffeur a des missions associées. Vous pouvez le désactiver à la place.`);
+        } else {
+          throw new Error(result.error || 'Erreur lors de la suppression');
+        }
+        startTransition(() => {
+          loadDrivers();
+        });
+        return;
+      }
     } catch (err: any) {
       alert('Erreur lors de la suppression: ' + err.message);
+      startTransition(() => {
+        loadDrivers();
+      });
     }
   };
 

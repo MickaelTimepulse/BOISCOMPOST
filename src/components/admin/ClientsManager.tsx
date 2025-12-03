@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, startTransition } from 'react';
 import { supabase, Client } from '../../lib/supabase';
 import { Plus, Search, CreditCard as Edit2, Eye, Loader2, Mail, Phone, MapPin, Hash, ExternalLink, Trash2 } from 'lucide-react';
 import { ClientForm } from './ClientForm';
@@ -47,13 +47,20 @@ export function ClientsManager() {
 
   const handleDelete = async () => {
     if (!deletingClient) return;
+    const clientId = deletingClient.id;
+    setDeletingClient(null);
+
+    setClients(prev => prev.filter(c => c.id !== clientId));
+
     const { error } = await supabase
       .from('clients')
       .delete()
-      .eq('id', deletingClient.id);
-    if (!error) {
-      setDeletingClient(null);
-      loadClients();
+      .eq('id', clientId);
+
+    if (error) {
+      startTransition(() => {
+        loadClients();
+      });
     }
   };
 

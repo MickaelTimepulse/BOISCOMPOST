@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, startTransition } from 'react';
 import { supabase, Mission, Client, Profile, CollectionSite, DepositSite, Vehicle, MaterialType } from '../../lib/supabase';
 import { Loader2, Calendar, Filter, CheckCircle, Mail, Plus, Edit, Trash2 } from 'lucide-react';
 import { MissionForm } from './MissionForm';
@@ -85,13 +85,17 @@ export function MissionsManager({ missionRequestId, onRequestProcessed }: Missio
       return;
     }
 
+    setMissions(prev => prev.filter(m => m.id !== missionId));
+
     const { error } = await supabase
       .from('missions')
       .delete()
       .eq('id', missionId);
 
-    if (!error) {
-      loadMissions();
+    if (error) {
+      startTransition(() => {
+        loadMissions();
+      });
     }
   };
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, startTransition } from 'react';
 import { supabase, CollectionSite, DepositSite, Client } from '../../lib/supabase';
 import { Plus, Loader2, CreditCard as Edit2, Save, MapPin, Trash2 } from 'lucide-react';
 
@@ -62,13 +62,24 @@ export function SitesManager() {
   const handleDelete = async () => {
     if (!deletingSite) return;
     const table = activeTab === 'collection' ? 'collection_sites' : 'deposit_sites';
+    const siteId = deletingSite.id;
+    setDeletingSite(null);
+
+    if (activeTab === 'collection') {
+      setCollectionSites(prev => prev.filter(s => s.id !== siteId));
+    } else {
+      setDepositSites(prev => prev.filter(s => s.id !== siteId));
+    }
+
     const { error } = await supabase
       .from(table)
       .delete()
-      .eq('id', deletingSite.id);
-    if (!error) {
-      setDeletingSite(null);
-      loadData();
+      .eq('id', siteId);
+
+    if (error) {
+      startTransition(() => {
+        loadData();
+      });
     }
   };
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, startTransition } from 'react';
 import { supabase, MaterialType } from '../../lib/supabase';
 import { Plus, Loader2, CreditCard as Edit2, X, Save, Trash2 } from 'lucide-react';
 
@@ -42,13 +42,20 @@ export function MaterialTypesManager() {
 
   const handleDelete = async () => {
     if (!deletingMaterial) return;
+    const materialId = deletingMaterial.id;
+    setDeletingMaterial(null);
+
+    setMaterials(prev => prev.filter(m => m.id !== materialId));
+
     const { error } = await supabase
       .from('material_types')
       .delete()
-      .eq('id', deletingMaterial.id);
-    if (!error) {
-      setDeletingMaterial(null);
-      loadMaterials();
+      .eq('id', materialId);
+
+    if (error) {
+      startTransition(() => {
+        loadMaterials();
+      });
     }
   };
 

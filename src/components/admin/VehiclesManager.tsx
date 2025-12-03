@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, startTransition } from 'react';
 import { supabase, Vehicle } from '../../lib/supabase';
 import { Plus, Loader2, CreditCard as Edit2, Save, Truck, Trash2 } from 'lucide-react';
 
@@ -42,13 +42,20 @@ export function VehiclesManager() {
 
   const handleDelete = async () => {
     if (!deletingVehicle) return;
+    const vehicleId = deletingVehicle.id;
+    setDeletingVehicle(null);
+
+    setVehicles(prev => prev.filter(v => v.id !== vehicleId));
+
     const { error } = await supabase
       .from('vehicles')
       .delete()
-      .eq('id', deletingVehicle.id);
-    if (!error) {
-      setDeletingVehicle(null);
-      loadVehicles();
+      .eq('id', vehicleId);
+
+    if (error) {
+      startTransition(() => {
+        loadVehicles();
+      });
     }
   };
 
