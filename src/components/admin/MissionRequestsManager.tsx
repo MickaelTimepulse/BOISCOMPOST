@@ -17,9 +17,10 @@ interface MissionRequest {
 
 interface MissionRequestsManagerProps {
   onConvertToMission?: (requestId: string) => void;
+  onRequestUpdate?: () => void;
 }
 
-export function MissionRequestsManager({ onConvertToMission }: MissionRequestsManagerProps) {
+export function MissionRequestsManager({ onConvertToMission, onRequestUpdate }: MissionRequestsManagerProps) {
   const [requests, setRequests] = useState<MissionRequest[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -55,6 +56,9 @@ export function MissionRequestsManager({ onConvertToMission }: MissionRequestsMa
 
     if (!error) {
       loadRequests();
+      if (onRequestUpdate) {
+        onRequestUpdate();
+      }
     }
   };
 
@@ -76,6 +80,9 @@ export function MissionRequestsManager({ onConvertToMission }: MissionRequestsMa
 
     if (!error) {
       loadRequests();
+      if (onRequestUpdate) {
+        onRequestUpdate();
+      }
     } else {
       alert('Erreur lors de la suppression: ' + error.message);
     }

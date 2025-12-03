@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 import {
   Users,
   MapPin,
@@ -29,6 +30,41 @@ export function SuperAdminDashboard() {
   const [activeTab, setActiveTab] = useState<TabType>('requests');
   const [missionRequestToConvert, setMissionRequestToConvert] = useState<string | null>(null);
   const [showMissionForm, setShowMissionForm] = useState(false);
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+
+  useEffect(() => {
+    loadPendingRequestsCount();
+
+    const interval = setInterval(() => {
+      loadPendingRequestsCount();
+    }, 10000);
+
+    const channel = supabase
+      .channel('mission_requests_changes')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'mission_requests' },
+        () => {
+          loadPendingRequestsCount();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      clearInterval(interval);
+      channel.unsubscribe();
+    };
+  }, []);
+
+  const loadPendingRequestsCount = async () => {
+    const { count } = await supabase
+      .from('mission_requests')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'pending');
+
+    if (count !== null) {
+      setPendingRequestsCount(count);
+    }
+  };
 
   const tabs = [
     { id: 'requests' as TabType, label: 'Demandes', icon: Truck, color: '#ea580c' },
@@ -86,7 +122,7 @@ export function SuperAdminDashboard() {
                   borderWidth: '2px',
                   borderStyle: 'solid'
                 }}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium text-xs whitespace-nowrap transition-all hover:shadow-md"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium text-xs whitespace-nowrap transition-all hover:shadow-md relative"
                 onMouseEnter={(e) => {
                   if (!isActive) {
                     e.currentTarget.style.backgroundColor = tab.color;
@@ -102,6 +138,14 @@ export function SuperAdminDashboard() {
               >
                 <Icon className="w-3.5 h-3.5" />
                 {tab.label}
+                {tab.id === 'requests' && pendingRequestsCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-5 w-5 bg-red-600 text-white text-[10px] font-bold items-center justify-center">
+                      {pendingRequestsCount}
+                    </span>
+                  </span>
+                )}
               </button>
             );
           })}
@@ -114,6 +158,7 @@ export function SuperAdminDashboard() {
                 setMissionRequestToConvert(requestId);
                 setActiveTab('missions');
               }}
+              onRequestUpdate={() => loadPendingRequestsCount()}
             />
           )}
           {activeTab === 'clients' && <ClientsManager />}
