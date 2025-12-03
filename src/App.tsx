@@ -37,24 +37,7 @@ function AppContent() {
   }
 
   if (!user || !profile) {
-    return (
-      <div>
-        <LoginForm />
-        <div className="text-center py-4">
-          <button
-            onClick={() => {
-              const url = new URL(window.location.href);
-              url.searchParams.set('view', 'tracking');
-              window.history.pushState({}, '', url);
-              setCurrentView('tracking');
-            }}
-            className="text-gray-600 hover:text-green-700 font-medium transition-colors text-sm"
-          >
-            Suivre mes collectes
-          </button>
-        </div>
-      </div>
-    );
+    return <LoginForm />;
   }
 
   if (profile.role === 'super_admin') {

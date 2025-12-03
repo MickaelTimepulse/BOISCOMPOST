@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Loader2, Truck, MapPin, Weight, Calendar, CheckCircle, ArrowRight } from 'lucide-react';
+import { Loader2, Truck, MapPin, Weight, Calendar, CheckCircle, ArrowRight, Trash2 } from 'lucide-react';
 
 interface MissionRequest {
   id: string;
@@ -61,6 +61,23 @@ export function MissionRequestsManager({ onConvertToMission }: MissionRequestsMa
   const handleConvertToMission = (request: MissionRequest) => {
     if (onConvertToMission) {
       onConvertToMission(request.id);
+    }
+  };
+
+  const handleDeleteRequest = async (request: MissionRequest) => {
+    if (!confirm(`Êtes-vous sûr de vouloir supprimer la demande de ${request.client.name} ?`)) {
+      return;
+    }
+
+    const { error } = await supabase
+      .from('mission_requests')
+      .delete()
+      .eq('id', request.id);
+
+    if (!error) {
+      loadRequests();
+    } else {
+      alert('Erreur lors de la suppression: ' + error.message);
     }
   };
 
@@ -157,6 +174,13 @@ export function MissionRequestsManager({ onConvertToMission }: MissionRequestsMa
                 >
                   <ArrowRight className="w-4 h-4" />
                   Convertir en mission
+                </button>
+                <button
+                  onClick={() => handleDeleteRequest(request)}
+                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Supprimer
                 </button>
               </div>
 
