@@ -175,6 +175,9 @@ export function MissionsManager({ missionRequestId, onRequestProcessed }: Missio
                       Validée
                     </span>
                   </div>
+                  <p className="text-sm font-semibold text-green-700 mb-1">
+                    N° Commande: {mission.order_number}
+                  </p>
                   <p className="text-sm text-gray-600">
                     Chauffeur: {mission.driver?.full_name}
                   </p>

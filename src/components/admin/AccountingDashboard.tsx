@@ -109,6 +109,7 @@ export function AccountingDashboard() {
 
   const exportToCSV = () => {
     const headers = [
+      'N° Commande',
       'Date',
       'Client',
       'Chauffeur',
@@ -124,6 +125,7 @@ export function AccountingDashboard() {
     ];
 
     const rows = filteredMissions.map(m => [
+      m.order_number || '',
       new Date(m.mission_date).toLocaleDateString('fr-FR'),
       m.client?.name || '',
       m.driver?.full_name || '',
@@ -217,6 +219,7 @@ export function AccountingDashboard() {
         <table style="width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 11px;">
           <thead>
             <tr>
+              <th style="background: #548235; color: white; padding: 10px 5px; text-align: left; font-weight: bold;">N° Cde</th>
               <th style="background: #548235; color: white; padding: 10px 5px; text-align: left; font-weight: bold;">Date</th>
               <th style="background: #548235; color: white; padding: 10px 5px; text-align: left; font-weight: bold;">Client</th>
               <th style="background: #548235; color: white; padding: 10px 5px; text-align: left; font-weight: bold;">Chauffeur</th>
@@ -230,6 +233,7 @@ export function AccountingDashboard() {
           <tbody>
             ${filteredMissions.map(m => `
               <tr>
+                <td style="padding: 8px 5px; border-bottom: 1px solid #ddd;">${m.order_number || '-'}</td>
                 <td style="padding: 8px 5px; border-bottom: 1px solid #ddd;">${new Date(m.mission_date).toLocaleDateString('fr-FR')}</td>
                 <td style="padding: 8px 5px; border-bottom: 1px solid #ddd;">${m.client?.name || '-'}</td>
                 <td style="padding: 8px 5px; border-bottom: 1px solid #ddd;">${m.driver?.full_name || '-'}</td>
@@ -241,7 +245,7 @@ export function AccountingDashboard() {
               </tr>
             `).join('')}
             <tr style="background: #f5f5f5; font-weight: bold; border-top: 2px solid #548235;">
-              <td colspan="7" style="padding: 8px 5px; text-align: right; padding-right: 10px;">TOTAL</td>
+              <td colspan="8" style="padding: 8px 5px; text-align: right; padding-right: 10px;">TOTAL</td>
               <td style="padding: 8px 5px;">${totalWeight.toFixed(2)} T</td>
             </tr>
           </tbody>
@@ -505,6 +509,7 @@ export function AccountingDashboard() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">N° Commande</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Date</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Client</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Chauffeur</th>
@@ -518,13 +523,16 @@ export function AccountingDashboard() {
             <tbody className="divide-y divide-gray-200">
               {filteredMissions.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
                     Aucune mission ne correspond aux filtres sélectionnés
                   </td>
                 </tr>
               ) : (
                 filteredMissions.map((mission) => (
                   <tr key={mission.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3 text-sm font-semibold text-green-700">
+                      {mission.order_number || '-'}
+                    </td>
                     <td className="px-4 py-3 text-sm text-gray-900">
                       {new Date(mission.mission_date).toLocaleDateString('fr-FR')}
                     </td>
@@ -544,7 +552,7 @@ export function AccountingDashboard() {
             {filteredMissions.length > 0 && (
               <tfoot className="bg-gray-50 border-t-2 border-green-700">
                 <tr>
-                  <td colSpan={7} className="px-4 py-3 text-right text-sm font-bold text-gray-900">
+                  <td colSpan={8} className="px-4 py-3 text-right text-sm font-bold text-gray-900">
                     TOTAL
                   </td>
                   <td className="px-4 py-3 text-sm font-bold text-green-700 text-right">

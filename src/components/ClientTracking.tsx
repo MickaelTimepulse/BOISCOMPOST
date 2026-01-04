@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { supabase, Mission, Client } from '../lib/supabase';
-import { Search, Package, Calendar, Weight, Loader2, BarChart3, Filter, Truck } from 'lucide-react';
+import { Search, Package, Calendar, Weight, Loader2, BarChart3, Filter, Truck, Download, FileText } from 'lucide-react';
 
 type PeriodFilter = 'all' | 'week' | 'month' | 'year';
 
@@ -167,6 +167,162 @@ export function ClientTracking() {
     } finally {
       setSubmittingRequest(false);
     }
+  };
+
+  const exportToCSV = () => {
+    if (!client) return;
+
+    const headers = [
+      'N° Commande',
+      'Date',
+      'Matériau',
+      'Poids à vide (kg)',
+      'Poids en charge (kg)',
+      'Poids net (T)',
+      'Commentaire'
+    ];
+
+    const rows = filteredMissions.map(m => [
+      m.order_number || '',
+      new Date(m.mission_date).toLocaleDateString('fr-FR'),
+      materialTypes[m.material_type_id] || '',
+      m.empty_weight_kg,
+      m.loaded_weight_kg,
+      m.net_weight_tons.toFixed(2),
+      m.driver_comment || ''
+    ]);
+
+    const csvContent = [
+      headers.join(';'),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(';'))
+    ].join('\n');
+
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `collectes_${client.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+  };
+
+  const exportToPDF = async () => {
+    if (!client) return;
+
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = `${window.location.origin}/boiscompost_origine.jpg`;
+
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
+    });
+
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d');
+    ctx?.drawImage(img, 0, 0);
+    const logoBase64 = canvas.toDataURL('image/jpeg');
+
+    const printContent = document.createElement('div');
+    printContent.id = 'print-content';
+    printContent.className = 'print-only';
+    printContent.innerHTML = `
+      <style>
+        @media screen {
+          .print-only { display: none !important; }
+        }
+        @media print {
+          body > *:not(#print-content) { display: none !important; }
+          #print-content { display: block !important; }
+        }
+      </style>
+      <div id="pdf-content" style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 3px solid #F79420; padding-bottom: 20px;">
+          <div style="display: flex; align-items: center; gap: 15px;">
+            <img src="${logoBase64}" alt="BOISCOMPOST" style="height: 60px; width: auto;">
+          </div>
+          <div style="text-align: right; font-size: 12px; color: #666;">
+            <strong>BOISCOMPOST</strong><br>
+            Le Moulin Potiron<br>
+            44370 Loireauxence<br>
+            France
+          </div>
+        </div>
+
+        <div style="text-align: center; font-size: 24px; font-weight: bold; color: #548235; margin: 30px 0;">
+          Historique des Collectes
+        </div>
+
+        <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 30px;">
+          <div style="font-size: 14px; margin-bottom: 10px;">
+            <span style="font-weight: bold; color: #548235;">Client :</span> ${client.name}
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
+            <div style="font-size: 14px;">
+              <span style="font-weight: bold; color: #548235;">Période :</span> ${getPeriodLabel()}
+            </div>
+            <div style="font-size: 14px;">
+              <span style="font-weight: bold; color: #548235;">Nombre de collectes :</span> ${stats.totalCount}
+            </div>
+            <div style="font-size: 14px;">
+              <span style="font-weight: bold; color: #548235;">Poids total :</span> ${stats.totalWeight.toFixed(2)} T
+            </div>
+          </div>
+          <div style="font-size: 14px; margin-top: 10px;">
+            <span style="font-weight: bold; color: #548235;">Date du rapport :</span> ${new Date().toLocaleDateString('fr-FR')}
+          </div>
+        </div>
+
+        <table style="width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 11px;">
+          <thead>
+            <tr>
+              <th style="background: #548235; color: white; padding: 10px 5px; text-align: left; font-weight: bold;">N° Cde</th>
+              <th style="background: #548235; color: white; padding: 10px 5px; text-align: left; font-weight: bold;">Date</th>
+              <th style="background: #548235; color: white; padding: 10px 5px; text-align: left; font-weight: bold;">Matériau</th>
+              <th style="background: #548235; color: white; padding: 10px 5px; text-align: left; font-weight: bold;">Poids à vide (kg)</th>
+              <th style="background: #548235; color: white; padding: 10px 5px; text-align: left; font-weight: bold;">Poids en charge (kg)</th>
+              <th style="background: #548235; color: white; padding: 10px 5px; text-align: left; font-weight: bold;">Poids net (T)</th>
+              <th style="background: #548235; color: white; padding: 10px 5px; text-align: left; font-weight: bold;">Commentaire</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filteredMissions.map(m => `
+              <tr>
+                <td style="padding: 8px 5px; border-bottom: 1px solid #ddd;">${m.order_number || '-'}</td>
+                <td style="padding: 8px 5px; border-bottom: 1px solid #ddd;">${new Date(m.mission_date).toLocaleDateString('fr-FR')}</td>
+                <td style="padding: 8px 5px; border-bottom: 1px solid #ddd;">${materialTypes[m.material_type_id] || '-'}</td>
+                <td style="padding: 8px 5px; border-bottom: 1px solid #ddd;">${m.empty_weight_kg}</td>
+                <td style="padding: 8px 5px; border-bottom: 1px solid #ddd;">${m.loaded_weight_kg}</td>
+                <td style="padding: 8px 5px; border-bottom: 1px solid #ddd;">${m.net_weight_tons.toFixed(2)}</td>
+                <td style="padding: 8px 5px; border-bottom: 1px solid #ddd; font-size: 9px;">${m.driver_comment || '-'}</td>
+              </tr>
+            `).join('')}
+            <tr style="background: #f5f5f5; font-weight: bold; border-top: 2px solid #548235;">
+              <td colspan="5" style="padding: 8px 5px; text-align: right; padding-right: 10px;">TOTAL</td>
+              <td style="padding: 8px 5px;">${stats.totalWeight.toFixed(2)} T</td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div style="margin-top: 40px; text-align: center; font-size: 10px; color: #999; border-top: 1px solid #ddd; padding-top: 20px;">
+          Document généré le ${new Date().toLocaleString('fr-FR')} - BOISCOMPOST - Le Moulin Potiron, 44370 Loireauxence
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(printContent);
+
+    const handleAfterPrint = () => {
+      printContent.remove();
+      window.removeEventListener('afterprint', handleAfterPrint);
+    };
+
+    window.addEventListener('afterprint', handleAfterPrint);
+
+    setTimeout(() => {
+      window.print();
+    }, 300);
   };
 
   return (
@@ -339,7 +495,27 @@ export function ClientTracking() {
               )}
 
               <div className="border-t border-gray-200 pt-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Historique des collectes</h3>
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900">Historique des collectes</h3>
+                  {filteredMissions.length > 0 && (
+                    <div className="flex gap-3">
+                      <button
+                        onClick={exportToCSV}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
+                      >
+                        <Download className="w-4 h-4" />
+                        Exporter CSV
+                      </button>
+                      <button
+                        onClick={exportToPDF}
+                        className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm font-medium"
+                      >
+                        <FileText className="w-4 h-4" />
+                        Exporter PDF
+                      </button>
+                    </div>
+                  )}
+                </div>
 
                 {filteredMissions.length === 0 ? (
                   <div className="text-center py-8">
@@ -351,16 +527,21 @@ export function ClientTracking() {
                     {filteredMissions.map((mission) => (
                       <div key={mission.id} className="border border-gray-200 rounded-lg p-4 hover:border-green-300 transition-colors">
                         <div className="flex justify-between items-start mb-3">
-                          <div className="flex items-center gap-2">
-                            <Calendar className="w-4 h-4 text-gray-500" />
-                            <span className="font-medium text-gray-900">
-                              {new Date(mission.mission_date).toLocaleDateString('fr-FR', {
-                                weekday: 'long',
-                                year: 'numeric',
-                                month: 'long',
-                                day: 'numeric'
-                              })}
-                            </span>
+                          <div>
+                            <p className="text-sm font-semibold text-green-700 mb-2">
+                              N° Commande: {mission.order_number}
+                            </p>
+                            <div className="flex items-center gap-2">
+                              <Calendar className="w-4 h-4 text-gray-500" />
+                              <span className="font-medium text-gray-900">
+                                {new Date(mission.mission_date).toLocaleDateString('fr-FR', {
+                                  weekday: 'long',
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric'
+                                })}
+                              </span>
+                            </div>
                           </div>
                           <div className="text-right">
                             <p className="text-2xl font-bold text-green-700">
