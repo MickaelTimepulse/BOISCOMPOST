@@ -111,6 +111,8 @@ export function AccountingDashboard() {
     const headers = [
       'N° Commande',
       'Date',
+      'ID Mission Client',
+      'Date Demande Client',
       'Client',
       'Chauffeur',
       'Site de collecte',
@@ -127,6 +129,8 @@ export function AccountingDashboard() {
     const rows = filteredMissions.map(m => [
       m.order_number || '',
       new Date(m.mission_date).toLocaleDateString('fr-FR'),
+      m.client_mission_id || '',
+      m.client_request_date ? new Date(m.client_request_date).toLocaleDateString('fr-FR') : '',
       m.client?.name || '',
       m.driver?.full_name || '',
       m.collection_site?.name || '',
@@ -216,37 +220,41 @@ export function AccountingDashboard() {
           </div>
         </div>
 
-        <table style="width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 11px;">
+        <table style="width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 10px;">
           <thead>
             <tr>
-              <th style="background: #548235; color: white; padding: 10px 5px; text-align: left; font-weight: bold;">N° Cde</th>
-              <th style="background: #548235; color: white; padding: 10px 5px; text-align: left; font-weight: bold;">Date</th>
-              <th style="background: #548235; color: white; padding: 10px 5px; text-align: left; font-weight: bold;">Client</th>
-              <th style="background: #548235; color: white; padding: 10px 5px; text-align: left; font-weight: bold;">Chauffeur</th>
-              <th style="background: #548235; color: white; padding: 10px 5px; text-align: left; font-weight: bold;">Site collecte</th>
-              <th style="background: #548235; color: white; padding: 10px 5px; text-align: left; font-weight: bold;">Site dépose</th>
-              <th style="background: #548235; color: white; padding: 10px 5px; text-align: left; font-weight: bold;">Véhicule</th>
-              <th style="background: #548235; color: white; padding: 10px 5px; text-align: left; font-weight: bold;">Matériau</th>
-              <th style="background: #548235; color: white; padding: 10px 5px; text-align: left; font-weight: bold;">Poids (T)</th>
+              <th style="background: #548235; color: white; padding: 10px 4px; text-align: left; font-weight: bold;">N° Cde</th>
+              <th style="background: #548235; color: white; padding: 10px 4px; text-align: left; font-weight: bold;">Date</th>
+              <th style="background: #548235; color: white; padding: 10px 4px; text-align: left; font-weight: bold;">ID Client</th>
+              <th style="background: #548235; color: white; padding: 10px 4px; text-align: left; font-weight: bold;">Date Dem.</th>
+              <th style="background: #548235; color: white; padding: 10px 4px; text-align: left; font-weight: bold;">Client</th>
+              <th style="background: #548235; color: white; padding: 10px 4px; text-align: left; font-weight: bold;">Chauffeur</th>
+              <th style="background: #548235; color: white; padding: 10px 4px; text-align: left; font-weight: bold;">Site collecte</th>
+              <th style="background: #548235; color: white; padding: 10px 4px; text-align: left; font-weight: bold;">Site dépose</th>
+              <th style="background: #548235; color: white; padding: 10px 4px; text-align: left; font-weight: bold;">Véhicule</th>
+              <th style="background: #548235; color: white; padding: 10px 4px; text-align: left; font-weight: bold;">Matériau</th>
+              <th style="background: #548235; color: white; padding: 10px 4px; text-align: left; font-weight: bold;">Poids (T)</th>
             </tr>
           </thead>
           <tbody>
             ${filteredMissions.map(m => `
               <tr>
-                <td style="padding: 8px 5px; border-bottom: 1px solid #ddd;">${m.order_number || '-'}</td>
-                <td style="padding: 8px 5px; border-bottom: 1px solid #ddd;">${new Date(m.mission_date).toLocaleDateString('fr-FR')}</td>
-                <td style="padding: 8px 5px; border-bottom: 1px solid #ddd;">${m.client?.name || '-'}</td>
-                <td style="padding: 8px 5px; border-bottom: 1px solid #ddd;">${m.driver?.full_name || '-'}</td>
-                <td style="padding: 8px 5px; border-bottom: 1px solid #ddd;">${m.collection_site?.name || '-'}</td>
-                <td style="padding: 8px 5px; border-bottom: 1px solid #ddd;">${m.deposit_site?.name || '-'}</td>
-                <td style="padding: 8px 5px; border-bottom: 1px solid #ddd;">${m.vehicle?.license_plate || '-'}</td>
-                <td style="padding: 8px 5px; border-bottom: 1px solid #ddd;">${m.material_type?.name || '-'}</td>
-                <td style="padding: 8px 5px; border-bottom: 1px solid #ddd;">${m.net_weight_tons.toFixed(2)}</td>
+                <td style="padding: 8px 4px; border-bottom: 1px solid #ddd;">${m.order_number || '-'}</td>
+                <td style="padding: 8px 4px; border-bottom: 1px solid #ddd;">${new Date(m.mission_date).toLocaleDateString('fr-FR')}</td>
+                <td style="padding: 8px 4px; border-bottom: 1px solid #ddd;">${m.client_mission_id || '-'}</td>
+                <td style="padding: 8px 4px; border-bottom: 1px solid #ddd;">${m.client_request_date ? new Date(m.client_request_date).toLocaleDateString('fr-FR') : '-'}</td>
+                <td style="padding: 8px 4px; border-bottom: 1px solid #ddd;">${m.client?.name || '-'}</td>
+                <td style="padding: 8px 4px; border-bottom: 1px solid #ddd;">${m.driver?.full_name || '-'}</td>
+                <td style="padding: 8px 4px; border-bottom: 1px solid #ddd;">${m.collection_site?.name || '-'}</td>
+                <td style="padding: 8px 4px; border-bottom: 1px solid #ddd;">${m.deposit_site?.name || '-'}</td>
+                <td style="padding: 8px 4px; border-bottom: 1px solid #ddd;">${m.vehicle?.license_plate || '-'}</td>
+                <td style="padding: 8px 4px; border-bottom: 1px solid #ddd;">${m.material_type?.name || '-'}</td>
+                <td style="padding: 8px 4px; border-bottom: 1px solid #ddd;">${m.net_weight_tons.toFixed(2)}</td>
               </tr>
             `).join('')}
             <tr style="background: #f5f5f5; font-weight: bold; border-top: 2px solid #548235;">
-              <td colspan="8" style="padding: 8px 5px; text-align: right; padding-right: 10px;">TOTAL</td>
-              <td style="padding: 8px 5px;">${totalWeight.toFixed(2)} T</td>
+              <td colspan="10" style="padding: 8px 4px; text-align: right; padding-right: 10px;">TOTAL</td>
+              <td style="padding: 8px 4px;">${totalWeight.toFixed(2)} T</td>
             </tr>
           </tbody>
         </table>

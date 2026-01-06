@@ -42,6 +42,8 @@ export function MissionsManager({ missionRequestId, onRequestProcessed }: Missio
         client_id: data.client_id,
         collection_site_id: data.collection_site_id,
         estimated_weight_tons: data.estimated_weight_tons,
+        client_mission_id: data.client_mission_id,
+        client_request_date: data.client_request_date,
         mission_request_id: data.id
       });
       setShowAddForm(true);

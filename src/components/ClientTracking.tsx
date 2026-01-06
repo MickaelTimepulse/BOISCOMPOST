@@ -21,7 +21,12 @@ export function ClientTracking() {
   const [materialTypes, setMaterialTypes] = useState<Record<string, string>>({});
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [collectionSites, setCollectionSites] = useState<any[]>([]);
-  const [requestForm, setRequestForm] = useState({ collection_site_id: '', estimated_weight_tons: '' });
+  const [requestForm, setRequestForm] = useState({
+    collection_site_id: '',
+    estimated_weight_tons: '',
+    client_mission_id: '',
+    client_request_date: new Date().toISOString().split('T')[0]
+  });
   const [submittingRequest, setSubmittingRequest] = useState(false);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
 
@@ -152,13 +157,20 @@ export function ClientTracking() {
         .insert({
           client_id: client.id,
           collection_site_id: requestForm.collection_site_id,
-          estimated_weight_tons: parseFloat(requestForm.estimated_weight_tons)
+          estimated_weight_tons: parseFloat(requestForm.estimated_weight_tons),
+          client_mission_id: requestForm.client_mission_id || null,
+          client_request_date: requestForm.client_request_date
         });
 
       if (error) throw error;
 
       setShowRequestModal(false);
-      setRequestForm({ collection_site_id: '', estimated_weight_tons: '' });
+      setRequestForm({
+        collection_site_id: '',
+        estimated_weight_tons: '',
+        client_mission_id: '',
+        client_request_date: new Date().toISOString().split('T')[0]
+      });
       setShowSuccessPopup(true);
       setTimeout(() => setShowSuccessPopup(false), 3000);
     } catch (err) {
@@ -175,6 +187,8 @@ export function ClientTracking() {
     const headers = [
       'N° Commande',
       'Date',
+      'ID Mission Client',
+      'Date Demande Client',
       'Matériau',
       'Poids à vide (kg)',
       'Poids en charge (kg)',
@@ -185,6 +199,8 @@ export function ClientTracking() {
     const rows = filteredMissions.map(m => [
       m.order_number || '',
       new Date(m.mission_date).toLocaleDateString('fr-FR'),
+      m.client_mission_id || '',
+      m.client_request_date ? new Date(m.client_request_date).toLocaleDateString('fr-FR') : '',
       materialTypes[m.material_type_id] || '',
       m.empty_weight_kg,
       m.loaded_weight_kg,
@@ -273,33 +289,37 @@ export function ClientTracking() {
           </div>
         </div>
 
-        <table style="width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 11px;">
+        <table style="width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 10px;">
           <thead>
             <tr>
-              <th style="background: #548235; color: white; padding: 10px 5px; text-align: left; font-weight: bold;">N° Cde</th>
-              <th style="background: #548235; color: white; padding: 10px 5px; text-align: left; font-weight: bold;">Date</th>
-              <th style="background: #548235; color: white; padding: 10px 5px; text-align: left; font-weight: bold;">Matériau</th>
-              <th style="background: #548235; color: white; padding: 10px 5px; text-align: left; font-weight: bold;">Poids à vide (kg)</th>
-              <th style="background: #548235; color: white; padding: 10px 5px; text-align: left; font-weight: bold;">Poids en charge (kg)</th>
-              <th style="background: #548235; color: white; padding: 10px 5px; text-align: left; font-weight: bold;">Poids net (T)</th>
-              <th style="background: #548235; color: white; padding: 10px 5px; text-align: left; font-weight: bold;">Commentaire</th>
+              <th style="background: #548235; color: white; padding: 10px 4px; text-align: left; font-weight: bold;">N° Cde</th>
+              <th style="background: #548235; color: white; padding: 10px 4px; text-align: left; font-weight: bold;">Date</th>
+              <th style="background: #548235; color: white; padding: 10px 4px; text-align: left; font-weight: bold;">ID Mission</th>
+              <th style="background: #548235; color: white; padding: 10px 4px; text-align: left; font-weight: bold;">Date Dem.</th>
+              <th style="background: #548235; color: white; padding: 10px 4px; text-align: left; font-weight: bold;">Matériau</th>
+              <th style="background: #548235; color: white; padding: 10px 4px; text-align: left; font-weight: bold;">Poids à vide (kg)</th>
+              <th style="background: #548235; color: white; padding: 10px 4px; text-align: left; font-weight: bold;">Poids en charge (kg)</th>
+              <th style="background: #548235; color: white; padding: 10px 4px; text-align: left; font-weight: bold;">Poids net (T)</th>
+              <th style="background: #548235; color: white; padding: 10px 4px; text-align: left; font-weight: bold;">Commentaire</th>
             </tr>
           </thead>
           <tbody>
             ${filteredMissions.map(m => `
               <tr>
-                <td style="padding: 8px 5px; border-bottom: 1px solid #ddd;">${m.order_number || '-'}</td>
-                <td style="padding: 8px 5px; border-bottom: 1px solid #ddd;">${new Date(m.mission_date).toLocaleDateString('fr-FR')}</td>
-                <td style="padding: 8px 5px; border-bottom: 1px solid #ddd;">${materialTypes[m.material_type_id] || '-'}</td>
-                <td style="padding: 8px 5px; border-bottom: 1px solid #ddd;">${m.empty_weight_kg}</td>
-                <td style="padding: 8px 5px; border-bottom: 1px solid #ddd;">${m.loaded_weight_kg}</td>
-                <td style="padding: 8px 5px; border-bottom: 1px solid #ddd;">${m.net_weight_tons.toFixed(2)}</td>
-                <td style="padding: 8px 5px; border-bottom: 1px solid #ddd; font-size: 9px;">${m.driver_comment || '-'}</td>
+                <td style="padding: 8px 4px; border-bottom: 1px solid #ddd;">${m.order_number || '-'}</td>
+                <td style="padding: 8px 4px; border-bottom: 1px solid #ddd;">${new Date(m.mission_date).toLocaleDateString('fr-FR')}</td>
+                <td style="padding: 8px 4px; border-bottom: 1px solid #ddd;">${m.client_mission_id || '-'}</td>
+                <td style="padding: 8px 4px; border-bottom: 1px solid #ddd;">${m.client_request_date ? new Date(m.client_request_date).toLocaleDateString('fr-FR') : '-'}</td>
+                <td style="padding: 8px 4px; border-bottom: 1px solid #ddd;">${materialTypes[m.material_type_id] || '-'}</td>
+                <td style="padding: 8px 4px; border-bottom: 1px solid #ddd;">${m.empty_weight_kg}</td>
+                <td style="padding: 8px 4px; border-bottom: 1px solid #ddd;">${m.loaded_weight_kg}</td>
+                <td style="padding: 8px 4px; border-bottom: 1px solid #ddd;">${m.net_weight_tons.toFixed(2)}</td>
+                <td style="padding: 8px 4px; border-bottom: 1px solid #ddd; font-size: 9px;">${m.driver_comment || '-'}</td>
               </tr>
             `).join('')}
             <tr style="background: #f5f5f5; font-weight: bold; border-top: 2px solid #548235;">
-              <td colspan="5" style="padding: 8px 5px; text-align: right; padding-right: 10px;">TOTAL</td>
-              <td style="padding: 8px 5px;">${stats.totalWeight.toFixed(2)} T</td>
+              <td colspan="7" style="padding: 8px 4px; text-align: right; padding-right: 10px;">TOTAL</td>
+              <td style="padding: 8px 4px;">${stats.totalWeight.toFixed(2)} T</td>
               <td></td>
             </tr>
           </tbody>
@@ -621,13 +641,44 @@ export function ClientTracking() {
                     required
                   />
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    ID de la mission client (optionnel)
+                  </label>
+                  <input
+                    type="text"
+                    value={requestForm.client_mission_id}
+                    onChange={(e) => setRequestForm({ ...requestForm, client_mission_id: e.target.value })}
+                    placeholder="Ex: CMD-2024-001"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Date de la demande du client
+                  </label>
+                  <input
+                    type="date"
+                    value={requestForm.client_request_date}
+                    onChange={(e) => setRequestForm({ ...requestForm, client_request_date: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    required
+                  />
+                </div>
               </div>
 
               <div className="flex gap-3 mt-6">
                 <button
                   onClick={() => {
                     setShowRequestModal(false);
-                    setRequestForm({ collection_site_id: '', estimated_weight_tons: '' });
+                    setRequestForm({
+                      collection_site_id: '',
+                      estimated_weight_tons: '',
+                      client_mission_id: '',
+                      client_request_date: new Date().toISOString().split('T')[0]
+                    });
                   }}
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                   disabled={submittingRequest}

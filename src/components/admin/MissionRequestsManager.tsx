@@ -11,6 +11,8 @@ interface MissionRequest {
   created_at: string;
   viewed_by_admin_at: string | null;
   viewed_by_driver_at: string | null;
+  client_mission_id: string | null;
+  client_request_date: string;
   client: { name: string; email: string };
   collection_site: { name: string; address: string };
 }
@@ -151,7 +153,29 @@ export function MissionRequestsManager({ onConvertToMission, onRequestUpdate }: 
                 <div className="flex items-start gap-2">
                   <Calendar className="w-4 h-4 text-gray-500 mt-1" />
                   <div>
-                    <p className="text-xs text-gray-500">Date de demande</p>
+                    <p className="text-xs text-gray-500">Date de la demande du client</p>
+                    <p className="font-medium text-gray-900">
+                      {new Date(request.client_request_date).toLocaleDateString('fr-FR', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric'
+                      })}
+                    </p>
+                  </div>
+                </div>
+                {request.client_mission_id && (
+                  <div className="flex items-start gap-2">
+                    <Weight className="w-4 h-4 text-gray-500 mt-1" />
+                    <div>
+                      <p className="text-xs text-gray-500">ID de la mission client</p>
+                      <p className="font-medium text-gray-900">{request.client_mission_id}</p>
+                    </div>
+                  </div>
+                )}
+                <div className="flex items-start gap-2">
+                  <Calendar className="w-4 h-4 text-gray-500 mt-1" />
+                  <div>
+                    <p className="text-xs text-gray-500">Date de soumission</p>
                     <p className="font-medium text-gray-900">
                       {new Date(request.created_at).toLocaleDateString('fr-FR', {
                         day: 'numeric',

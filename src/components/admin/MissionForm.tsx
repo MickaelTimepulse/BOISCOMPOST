@@ -21,6 +21,8 @@ export function MissionForm({ mission, onSuccess, onCancel }: MissionFormProps) 
     loaded_weight_kg: mission?.loaded_weight_kg || '',
     driver_comment: mission?.driver_comment || '',
     status: mission?.status || 'validated',
+    client_mission_id: mission?.client_mission_id || '',
+    client_request_date: mission?.client_request_date || new Date().toISOString().split('T')[0],
   });
 
   const [clients, setClients] = useState<Client[]>([]);
@@ -86,6 +88,8 @@ export function MissionForm({ mission, onSuccess, onCancel }: MissionFormProps) 
       loaded_weight_kg: formData.loaded_weight_kg,
       driver_comment: formData.driver_comment,
       status: formData.status,
+      client_mission_id: formData.client_mission_id || null,
+      client_request_date: formData.client_request_date,
       validated_at: formData.status === 'validated' && !mission?.validated_at ? new Date().toISOString() : mission?.validated_at,
     };
 
@@ -283,6 +287,32 @@ export function MissionForm({ mission, onSuccess, onCancel }: MissionFormProps) 
                 <option value="completed">Terminée</option>
                 <option value="validated">Validée</option>
               </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                ID de la mission client
+              </label>
+              <input
+                type="text"
+                value={formData.client_mission_id}
+                onChange={(e) => setFormData({ ...formData, client_mission_id: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                placeholder="Ex: CMD-2024-001"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Date de la demande du client *
+              </label>
+              <input
+                type="date"
+                value={formData.client_request_date}
+                onChange={(e) => setFormData({ ...formData, client_request_date: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                required
+              />
             </div>
 
             <div>
