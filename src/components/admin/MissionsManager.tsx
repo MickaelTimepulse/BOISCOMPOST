@@ -15,6 +15,7 @@ export function MissionsManager({ missionRequestId, onRequestProcessed }: Missio
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingMission, setEditingMission] = useState<any>(null);
   const [missionFromRequest, setMissionFromRequest] = useState<any>(null);
+  const [displayLimit, setDisplayLimit] = useState(30);
 
   useEffect(() => {
     loadMissions();
@@ -106,6 +107,16 @@ export function MissionsManager({ missionRequestId, onRequestProcessed }: Missio
     return true;
   });
 
+  const displayedMissions = filteredMissions.slice(0, displayLimit);
+
+  const loadMoreMissions = () => {
+    setDisplayLimit(prev => prev + 30);
+  };
+
+  useEffect(() => {
+    setDisplayLimit(30);
+  }, [dateFilter]);
+
   if (loading) {
     return <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-green-700" /></div>;
   }
@@ -165,7 +176,7 @@ export function MissionsManager({ missionRequestId, onRequestProcessed }: Missio
             <p className="text-gray-600">Aucune mission trouvée</p>
           </div>
         ) : (
-          filteredMissions.map((mission) => (
+          displayedMissions.map((mission) => (
             <div key={mission.id} className="bg-gray-50 rounded-lg p-6">
               <div className="flex justify-between items-start mb-4">
                 <div>
@@ -239,6 +250,21 @@ export function MissionsManager({ missionRequestId, onRequestProcessed }: Missio
               </div>
             </div>
           ))
+        )}
+
+        {displayedMissions.length < filteredMissions.length && (
+          <div className="mt-6 text-center">
+            <button
+              onClick={loadMoreMissions}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-green-700 text-white rounded-lg hover:bg-green-800 transition-colors font-medium"
+            >
+              <Plus className="w-5 h-5" />
+              Charger plus de missions ({filteredMissions.length - displayedMissions.length} restantes)
+            </button>
+            <p className="text-sm text-gray-600 mt-2">
+              Affichage de {displayedMissions.length} sur {filteredMissions.length} missions
+            </p>
+          </div>
         )}
       </div>
     </div>

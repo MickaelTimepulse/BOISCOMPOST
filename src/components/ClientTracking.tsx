@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
-import { supabase, Mission, Client } from '../lib/supabase';
-import { Search, Package, Calendar, Weight, Loader2, BarChart3, Filter, Truck, Download, FileText } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { supabase, Mission, Client, CollectionSite, DepositSite } from '../lib/supabase';
+import { Search, Package, Calendar, Weight, Loader2, BarChart3, Filter, Truck, Download, FileText, MapPin, X } from 'lucide-react';
 
 type PeriodFilter = 'all' | 'week' | 'month' | 'year';
 
@@ -10,17 +10,33 @@ interface MaterialStats {
   total_weight: number;
 }
 
+interface MissionWithSites extends Mission {
+  collection_site: CollectionSite;
+  deposit_site: DepositSite;
+}
+
+interface FilterOptions {
+  startDate: string;
+  endDate: string;
+  collectionSiteId: string;
+  depositSiteId: string;
+  materialTypeId: string;
+}
+
 export function ClientTracking() {
   const [trackingCode, setTrackingCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [client, setClient] = useState<Client | null>(null);
-  const [missions, setMissions] = useState<Mission[]>([]);
+  const [missions, setMissions] = useState<MissionWithSites[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('all');
   const [materialTypes, setMaterialTypes] = useState<Record<string, string>>({});
   const [showRequestModal, setShowRequestModal] = useState(false);
-  const [collectionSites, setCollectionSites] = useState<any[]>([]);
+  const [collectionSites, setCollectionSites] = useState<CollectionSite[]>([]);
+  const [depositSites, setDepositSites] = useState<DepositSite[]>([]);
+  const [displayLimit, setDisplayLimit] = useState(30);
+  const [hasMoreMissions, setHasMoreMissions] = useState(false);
   const [requestForm, setRequestForm] = useState({
     collection_site_id: '',
     estimated_weight_tons: '',
@@ -29,6 +45,14 @@ export function ClientTracking() {
   });
   const [submittingRequest, setSubmittingRequest] = useState(false);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState<FilterOptions>({
+    startDate: '',
+    endDate: '',
+    collectionSiteId: '',
+    depositSiteId: '',
+    materialTypeId: ''
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,9 +62,7 @@ export function ClientTracking() {
 
     try {
       const { data: clientData, error: clientError } = await supabase
-        .from('clients')
-        .select('*')
-        .eq('tracking_token', trackingCode.trim())
+        .rpc('get_client_by_tracking_token', { token: trackingCode.trim() })
         .maybeSingle();
 
       if (clientError) throw clientError;
@@ -57,14 +79,20 @@ export function ClientTracking() {
 
       const { data: missionsData, error: missionsError } = await supabase
         .from('missions')
-        .select('*')
+        .select(`
+          *,
+          collection_site:collection_sites!missions_collection_site_id_fkey(*),
+          deposit_site:deposit_sites!missions_deposit_site_id_fkey(*)
+        `)
         .eq('client_id', clientData.id)
-        .eq('status', 'validated')
+        .or('status.eq.completed,status.eq.validated')
         .order('mission_date', { ascending: false });
 
       if (missionsError) throw missionsError;
 
       setMissions(missionsData || []);
+      setDisplayLimit(30);
+      setHasMoreMissions((missionsData || []).length > 30);
 
       const { data: materialsData } = await supabase
         .from('material_types')
@@ -88,6 +116,15 @@ export function ClientTracking() {
         setCollectionSites(sitesData);
       }
 
+      const { data: depositSitesData } = await supabase
+        .from('deposit_sites')
+        .select('*')
+        .eq('is_active', true);
+
+      if (depositSitesData) {
+        setDepositSites(depositSitesData);
+      }
+
       setShowResults(true);
     } catch (err: any) {
       setError('Erreur lors de la recherche. Veuillez réessayer.');
@@ -98,25 +135,78 @@ export function ClientTracking() {
   };
 
   const filteredMissions = useMemo(() => {
-    if (periodFilter === 'all') return missions;
+    let filtered = missions;
 
-    const now = new Date();
-    const filterDate = new Date();
+    // Filtre par période (boutons Tout, Semaine, Mois, Année)
+    if (periodFilter !== 'all') {
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      const filterDate = new Date(now);
 
-    switch (periodFilter) {
-      case 'week':
-        filterDate.setDate(now.getDate() - 7);
-        break;
-      case 'month':
-        filterDate.setMonth(now.getMonth() - 1);
-        break;
-      case 'year':
-        filterDate.setFullYear(now.getFullYear() - 1);
-        break;
+      switch (periodFilter) {
+        case 'week':
+          filterDate.setDate(now.getDate() - 7);
+          break;
+        case 'month':
+          filterDate.setMonth(now.getMonth() - 1);
+          break;
+        case 'year':
+          filterDate.setFullYear(now.getFullYear() - 1);
+          break;
+      }
+
+      filtered = filtered.filter(mission => {
+        const missionDate = new Date(mission.mission_date);
+        missionDate.setHours(0, 0, 0, 0);
+        return missionDate >= filterDate;
+      });
     }
 
-    return missions.filter(mission => new Date(mission.mission_date) >= filterDate);
-  }, [missions, periodFilter]);
+    // Filtres avancés
+    if (filters.startDate) {
+      const startDate = new Date(filters.startDate);
+      startDate.setHours(0, 0, 0, 0);
+      filtered = filtered.filter(mission => {
+        const missionDate = new Date(mission.mission_date);
+        missionDate.setHours(0, 0, 0, 0);
+        return missionDate >= startDate;
+      });
+    }
+
+    if (filters.endDate) {
+      const endDate = new Date(filters.endDate);
+      endDate.setHours(23, 59, 59, 999);
+      filtered = filtered.filter(mission => {
+        const missionDate = new Date(mission.mission_date);
+        missionDate.setHours(0, 0, 0, 0);
+        return missionDate <= endDate;
+      });
+    }
+
+    if (filters.collectionSiteId) {
+      filtered = filtered.filter(mission =>
+        mission.collection_site_id === filters.collectionSiteId
+      );
+    }
+
+    if (filters.depositSiteId) {
+      filtered = filtered.filter(mission =>
+        mission.deposit_site_id === filters.depositSiteId
+      );
+    }
+
+    if (filters.materialTypeId) {
+      filtered = filtered.filter(mission =>
+        mission.material_type_id === filters.materialTypeId
+      );
+    }
+
+    return filtered;
+  }, [missions, periodFilter, filters]);
+
+  const displayedMissions = useMemo(() => {
+    return filteredMissions.slice(0, displayLimit);
+  }, [filteredMissions, displayLimit]);
 
   const stats = useMemo(() => {
     const totalWeight = filteredMissions.reduce((sum, mission) => sum + mission.net_weight_tons, 0);
@@ -143,6 +233,14 @@ export function ClientTracking() {
       default: return 'Toute la période';
     }
   };
+
+  const loadMoreMissions = () => {
+    setDisplayLimit(prev => prev + 30);
+  };
+
+  useEffect(() => {
+    setDisplayLimit(30);
+  }, [periodFilter, filters]);
 
   const handleRequestMission = async () => {
     if (!client || !requestForm.collection_site_id || !requestForm.estimated_weight_tons) {
@@ -186,9 +284,13 @@ export function ClientTracking() {
 
     const headers = [
       'N° Commande',
-      'Date',
-      'ID Mission Client',
+      'ID Demande Client',
+      'Date Collecte',
       'Date Demande Client',
+      'Lieu de collecte',
+      'Adresse collecte',
+      'Lieu de dépose',
+      'Adresse dépose',
       'Matériau',
       'Poids à vide (kg)',
       'Poids en charge (kg)',
@@ -198,9 +300,13 @@ export function ClientTracking() {
 
     const rows = filteredMissions.map(m => [
       m.order_number || '',
-      new Date(m.mission_date).toLocaleDateString('fr-FR'),
       m.client_mission_id || '',
+      new Date(m.mission_date).toLocaleDateString('fr-FR'),
       m.client_request_date ? new Date(m.client_request_date).toLocaleDateString('fr-FR') : '',
+      m.collection_site?.name || '',
+      m.collection_site?.address || '',
+      m.deposit_site?.name || '',
+      m.deposit_site?.address || '',
       materialTypes[m.material_type_id] || '',
       m.empty_weight_kg,
       m.loaded_weight_kg,
@@ -289,38 +395,37 @@ export function ClientTracking() {
           </div>
         </div>
 
-        <table style="width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 10px;">
+        <table style="width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 8px;">
           <thead>
             <tr>
-              <th style="background: #548235; color: white; padding: 10px 4px; text-align: left; font-weight: bold;">N° Cde</th>
-              <th style="background: #548235; color: white; padding: 10px 4px; text-align: left; font-weight: bold;">Date</th>
-              <th style="background: #548235; color: white; padding: 10px 4px; text-align: left; font-weight: bold;">ID Mission</th>
-              <th style="background: #548235; color: white; padding: 10px 4px; text-align: left; font-weight: bold;">Date Dem.</th>
-              <th style="background: #548235; color: white; padding: 10px 4px; text-align: left; font-weight: bold;">Matériau</th>
-              <th style="background: #548235; color: white; padding: 10px 4px; text-align: left; font-weight: bold;">Poids à vide (kg)</th>
-              <th style="background: #548235; color: white; padding: 10px 4px; text-align: left; font-weight: bold;">Poids en charge (kg)</th>
-              <th style="background: #548235; color: white; padding: 10px 4px; text-align: left; font-weight: bold;">Poids net (T)</th>
-              <th style="background: #548235; color: white; padding: 10px 4px; text-align: left; font-weight: bold;">Commentaire</th>
+              <th style="background: #548235; color: white; padding: 8px 3px; text-align: left; font-weight: bold;">N° Cde</th>
+              <th style="background: #548235; color: white; padding: 8px 3px; text-align: left; font-weight: bold;">ID Demande</th>
+              <th style="background: #548235; color: white; padding: 8px 3px; text-align: left; font-weight: bold;">Date</th>
+              <th style="background: #548235; color: white; padding: 8px 3px; text-align: left; font-weight: bold;">Lieu collecte</th>
+              <th style="background: #548235; color: white; padding: 8px 3px; text-align: left; font-weight: bold;">Lieu dépose</th>
+              <th style="background: #548235; color: white; padding: 8px 3px; text-align: left; font-weight: bold;">Matériau</th>
+              <th style="background: #548235; color: white; padding: 8px 3px; text-align: left; font-weight: bold;">Vide (kg)</th>
+              <th style="background: #548235; color: white; padding: 8px 3px; text-align: left; font-weight: bold;">Charge (kg)</th>
+              <th style="background: #548235; color: white; padding: 8px 3px; text-align: left; font-weight: bold;">Net (T)</th>
             </tr>
           </thead>
           <tbody>
             ${filteredMissions.map(m => `
               <tr>
-                <td style="padding: 8px 4px; border-bottom: 1px solid #ddd;">${m.order_number || '-'}</td>
-                <td style="padding: 8px 4px; border-bottom: 1px solid #ddd;">${new Date(m.mission_date).toLocaleDateString('fr-FR')}</td>
-                <td style="padding: 8px 4px; border-bottom: 1px solid #ddd;">${m.client_mission_id || '-'}</td>
-                <td style="padding: 8px 4px; border-bottom: 1px solid #ddd;">${m.client_request_date ? new Date(m.client_request_date).toLocaleDateString('fr-FR') : '-'}</td>
-                <td style="padding: 8px 4px; border-bottom: 1px solid #ddd;">${materialTypes[m.material_type_id] || '-'}</td>
-                <td style="padding: 8px 4px; border-bottom: 1px solid #ddd;">${m.empty_weight_kg}</td>
-                <td style="padding: 8px 4px; border-bottom: 1px solid #ddd;">${m.loaded_weight_kg}</td>
-                <td style="padding: 8px 4px; border-bottom: 1px solid #ddd;">${m.net_weight_tons.toFixed(2)}</td>
-                <td style="padding: 8px 4px; border-bottom: 1px solid #ddd; font-size: 9px;">${m.driver_comment || '-'}</td>
+                <td style="padding: 6px 3px; border-bottom: 1px solid #ddd;">${m.order_number || '-'}</td>
+                <td style="padding: 6px 3px; border-bottom: 1px solid #ddd; font-size: 7px;">${m.client_mission_id || '-'}</td>
+                <td style="padding: 6px 3px; border-bottom: 1px solid #ddd;">${new Date(m.mission_date).toLocaleDateString('fr-FR')}</td>
+                <td style="padding: 6px 3px; border-bottom: 1px solid #ddd; font-size: 7px;">${m.collection_site?.name || '-'}</td>
+                <td style="padding: 6px 3px; border-bottom: 1px solid #ddd; font-size: 7px;">${m.deposit_site?.name || '-'}</td>
+                <td style="padding: 6px 3px; border-bottom: 1px solid #ddd;">${materialTypes[m.material_type_id] || '-'}</td>
+                <td style="padding: 6px 3px; border-bottom: 1px solid #ddd;">${m.empty_weight_kg}</td>
+                <td style="padding: 6px 3px; border-bottom: 1px solid #ddd;">${m.loaded_weight_kg}</td>
+                <td style="padding: 6px 3px; border-bottom: 1px solid #ddd; font-weight: bold;">${m.net_weight_tons.toFixed(2)}</td>
               </tr>
             `).join('')}
             <tr style="background: #f5f5f5; font-weight: bold; border-top: 2px solid #548235;">
-              <td colspan="7" style="padding: 8px 4px; text-align: right; padding-right: 10px;">TOTAL</td>
-              <td style="padding: 8px 4px;">${stats.totalWeight.toFixed(2)} T</td>
-              <td></td>
+              <td colspan="8" style="padding: 8px 3px; text-align: right; padding-right: 10px;">TOTAL</td>
+              <td style="padding: 8px 3px;">${stats.totalWeight.toFixed(2)} T</td>
             </tr>
           </tbody>
         </table>
@@ -408,7 +513,13 @@ export function ClientTracking() {
                 </button>
               </div>
               <div className="flex justify-between items-start mb-6">
-                <div></div>
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors text-sm font-medium"
+                >
+                  <Filter className="w-4 h-4" />
+                  {showFilters ? 'Masquer les filtres' : 'Filtres avancés'}
+                </button>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setPeriodFilter('all')}
@@ -452,6 +563,126 @@ export function ClientTracking() {
                   </button>
                 </div>
               </div>
+
+              {showFilters && (
+                <div className="bg-gray-50 rounded-lg p-6 mb-6 border border-gray-200">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <Filter className="w-4 h-4" />
+                    Filtres avancés
+                  </h3>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Date de début
+                      </label>
+                      <input
+                        type="date"
+                        value={filters.startDate}
+                        onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Date de fin
+                      </label>
+                      <input
+                        type="date"
+                        value={filters.endDate}
+                        onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Lieu de collecte
+                      </label>
+                      <select
+                        value={filters.collectionSiteId}
+                        onChange={(e) => setFilters({ ...filters, collectionSiteId: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                      >
+                        <option value="">Tous les lieux</option>
+                        {collectionSites.map((site) => (
+                          <option key={site.id} value={site.id}>
+                            {site.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Lieu de dépose
+                      </label>
+                      <select
+                        value={filters.depositSiteId}
+                        onChange={(e) => setFilters({ ...filters, depositSiteId: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                      >
+                        <option value="">Tous les lieux</option>
+                        {depositSites.map((site) => (
+                          <option key={site.id} value={site.id}>
+                            {site.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Matériau
+                      </label>
+                      <select
+                        value={filters.materialTypeId}
+                        onChange={(e) => setFilters({ ...filters, materialTypeId: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                      >
+                        <option value="">Tous les matériaux</option>
+                        {Object.entries(materialTypes).map(([id, name]) => (
+                          <option key={id} value={id}>
+                            {name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex items-end">
+                      <button
+                        onClick={() => {
+                          setFilters({
+                            startDate: '',
+                            endDate: '',
+                            collectionSiteId: '',
+                            depositSiteId: '',
+                            materialTypeId: ''
+                          });
+                        }}
+                        className="w-full px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                      >
+                        <X className="w-4 h-4" />
+                        Réinitialiser
+                      </button>
+                    </div>
+                  </div>
+
+                  {(filters.startDate || filters.endDate || filters.collectionSiteId || filters.depositSiteId || filters.materialTypeId) && (
+                    <div className="mt-4 pt-4 border-t border-gray-300">
+                      <p className="text-sm text-gray-700">
+                        <span className="font-semibold">Filtres actifs :</span>
+                        {filters.startDate && <span className="ml-2 inline-flex items-center px-2 py-1 rounded bg-green-100 text-green-800 text-xs">À partir du {new Date(filters.startDate).toLocaleDateString('fr-FR')}</span>}
+                        {filters.endDate && <span className="ml-2 inline-flex items-center px-2 py-1 rounded bg-green-100 text-green-800 text-xs">Jusqu'au {new Date(filters.endDate).toLocaleDateString('fr-FR')}</span>}
+                        {filters.collectionSiteId && <span className="ml-2 inline-flex items-center px-2 py-1 rounded bg-blue-100 text-blue-800 text-xs">{collectionSites.find(s => s.id === filters.collectionSiteId)?.name}</span>}
+                        {filters.depositSiteId && <span className="ml-2 inline-flex items-center px-2 py-1 rounded bg-orange-100 text-orange-800 text-xs">{depositSites.find(s => s.id === filters.depositSiteId)?.name}</span>}
+                        {filters.materialTypeId && <span className="ml-2 inline-flex items-center px-2 py-1 rounded bg-purple-100 text-purple-800 text-xs">{materialTypes[filters.materialTypeId]}</span>}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="mb-4">
                 <p className="text-sm text-gray-600 flex items-center gap-2">
@@ -543,14 +774,20 @@ export function ClientTracking() {
                     <p className="text-gray-600">Aucune collecte pour cette période</p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    {filteredMissions.map((mission) => (
-                      <div key={mission.id} className="border border-gray-200 rounded-lg p-4 hover:border-green-300 transition-colors">
+                  <>
+                    <div className="space-y-3">
+                      {displayedMissions.map((mission) => (
+                        <div key={mission.id} className="border border-gray-200 rounded-lg p-4 hover:border-green-300 transition-colors">
                         <div className="flex justify-between items-start mb-3">
                           <div>
-                            <p className="text-sm font-semibold text-green-700 mb-2">
+                            <p className="text-sm font-semibold text-green-700 mb-1">
                               N° Commande: {mission.order_number}
                             </p>
+                            {mission.client_mission_id && (
+                              <p className="text-sm text-blue-600 font-medium mb-2">
+                                ID Demande Client: {mission.client_mission_id}
+                              </p>
+                            )}
                             <div className="flex items-center gap-2">
                               <Calendar className="w-4 h-4 text-gray-500" />
                               <span className="font-medium text-gray-900">
@@ -562,6 +799,11 @@ export function ClientTracking() {
                                 })}
                               </span>
                             </div>
+                            {mission.client_request_date && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                Demandé le: {new Date(mission.client_request_date).toLocaleDateString('fr-FR')}
+                              </p>
+                            )}
                           </div>
                           <div className="text-right">
                             <p className="text-2xl font-bold text-green-700">
@@ -571,7 +813,31 @@ export function ClientTracking() {
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm mb-2">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                          <div className="bg-blue-50 rounded-lg p-3">
+                            <div className="flex items-start gap-2">
+                              <MapPin className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                              <div className="min-w-0">
+                                <p className="text-xs text-blue-800 font-medium mb-1">Lieu de collecte</p>
+                                <p className="text-sm font-semibold text-blue-900">{mission.collection_site?.name || 'Non spécifié'}</p>
+                                <p className="text-xs text-blue-700 mt-0.5">{mission.collection_site?.address || ''}</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="bg-orange-50 rounded-lg p-3">
+                            <div className="flex items-start gap-2">
+                              <MapPin className="w-4 h-4 text-orange-600 mt-0.5 flex-shrink-0" />
+                              <div className="min-w-0">
+                                <p className="text-xs text-orange-800 font-medium mb-1">Lieu de dépose</p>
+                                <p className="text-sm font-semibold text-orange-900">{mission.deposit_site?.name || 'Non spécifié'}</p>
+                                <p className="text-xs text-orange-700 mt-0.5">{mission.deposit_site?.address || ''}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                           <div className="flex items-start gap-2">
                             <Weight className="w-4 h-4 text-gray-400 mt-0.5" />
                             <div>
@@ -595,6 +861,22 @@ export function ClientTracking() {
                       </div>
                     ))}
                   </div>
+
+                  {displayedMissions.length < filteredMissions.length && (
+                    <div className="mt-6 text-center">
+                      <button
+                        onClick={loadMoreMissions}
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-green-700 text-white rounded-lg hover:bg-green-800 transition-colors font-medium"
+                      >
+                        <Package className="w-5 h-5" />
+                        Charger plus de missions ({filteredMissions.length - displayedMissions.length} restantes)
+                      </button>
+                      <p className="text-sm text-gray-600 mt-2">
+                        Affichage de {displayedMissions.length} sur {filteredMissions.length} collectes
+                      </p>
+                    </div>
+                  )}
+                </>
                 )}
               </div>
             </div>
