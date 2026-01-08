@@ -81,8 +81,8 @@ export function ClientTracking() {
         .from('missions')
         .select(`
           *,
-          collection_site:collection_sites!missions_collection_site_id_fkey(*),
-          deposit_site:deposit_sites!missions_deposit_site_id_fkey(*)
+          collection_site:collection_sites(*),
+          deposit_site:deposit_sites(*)
         `)
         .eq('client_id', clientData.id)
         .or('status.eq.completed,status.eq.validated')
