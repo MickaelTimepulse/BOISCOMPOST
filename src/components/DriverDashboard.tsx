@@ -116,7 +116,9 @@ export function DriverDashboard() {
     setConvertingRequestData({
       client_id: request.client_id,
       collection_site_id: request.collection_site_id,
-      estimated_weight_tons: request.estimated_weight_tons
+      estimated_weight_tons: request.estimated_weight_tons,
+      client_mission_id: request.client_mission_id,
+      client_request_date: request.client_request_date
     });
     setShowForm(true);
   };

@@ -16,6 +16,8 @@ type MissionFormProps = {
     client_id?: string;
     collection_site_id?: string;
     estimated_weight_tons?: number;
+    client_mission_id?: string;
+    client_request_date?: string;
   };
   mission?: any;
 };
@@ -44,7 +46,9 @@ export function MissionForm({
     mission_date: mission?.mission_date || new Date().toISOString().split('T')[0],
     empty_weight_kg: mission?.empty_weight_kg?.toString() || '',
     loaded_weight_kg: mission?.loaded_weight_kg?.toString() || '',
-    driver_comment: mission?.driver_comment || ''
+    driver_comment: mission?.driver_comment || '',
+    client_mission_id: initialData?.client_mission_id || mission?.client_mission_id || '',
+    client_request_date: initialData?.client_request_date || mission?.client_request_date || new Date().toISOString().split('T')[0]
   });
 
   const filteredCollectionSites = formData.client_id
@@ -76,7 +80,9 @@ export function MissionForm({
           mission_date: formData.mission_date,
           empty_weight_kg: emptyWeight,
           loaded_weight_kg: loadedWeight,
-          driver_comment: formData.driver_comment || null
+          driver_comment: formData.driver_comment || null,
+          client_mission_id: formData.client_mission_id || null,
+          client_request_date: formData.client_request_date
         }).eq('id', mission.id);
 
         if (updateError) throw updateError;
@@ -92,6 +98,8 @@ export function MissionForm({
           empty_weight_kg: emptyWeight,
           loaded_weight_kg: loadedWeight,
           driver_comment: formData.driver_comment || null,
+          client_mission_id: formData.client_mission_id || null,
+          client_request_date: formData.client_request_date,
           status: 'completed'
         });
 
@@ -239,6 +247,32 @@ export function MissionForm({
               type="date"
               value={formData.mission_date}
               onChange={(e) => setFormData({ ...formData, mission_date: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              ID de la mission client
+            </label>
+            <input
+              type="text"
+              value={formData.client_mission_id}
+              onChange={(e) => setFormData({ ...formData, client_mission_id: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              placeholder="Ex: CMD-2024-001"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Date de la demande du client *
+            </label>
+            <input
+              type="date"
+              value={formData.client_request_date}
+              onChange={(e) => setFormData({ ...formData, client_request_date: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
               required
             />
